@@ -27,7 +27,7 @@ library(viridis)
 library(stringr)
 
 # Load data --------------------------------------------
-d <- read.table("Charter_SouthFloridaKeys_8_31_20_906Count.csv", 
+d <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
 #d <- read.table("Charter_PhotoCount_NC_VA.csv",  
              header = T, sep = ",", check.names = F, quote = "")
 
@@ -40,14 +40,18 @@ d$photo_type <- tolower(d$photo_type)
 table(d$region, useNA = "always")
 table(d$marina, useNA = "always")
 table(d$company, useNA = "always")
-table(d$photo_type, useNA = "always")
 table(d$photo_ID, useNA = "always")
 table(d$year, useNA = "always")
+
+table(d$photo_type, useNA = "always")
+d <- d[which(d$photo_type == "layout"),]
+dim(d)
 
 totalMahiGaffers <- rowSums(d[,grep("mahi_gaffers", tolower(names(d)))], na.rm=T)
 d <- d[,-grep("mahi_gaffers", tolower(names(d)))]
 d <- d[,-grep("notes", tolower(names(d)))]
 
+totalMahiGaffers[which(totalMahiGaffers == 0)] <- NA
 d$mahi_gaffers <- totalMahiGaffers
 names(d)
 
@@ -59,33 +63,52 @@ names(d)
 names(d)[9:(ncol(d)-2)]         # check that this is all the species columns
 
 # Create list of top species ---------------------------
+
 sort(colSums(d[9:(ncol(d)-2)], na.rm=T))
 length(sort(colSums(d[9:(ncol(d)-2)], na.rm=T)))
-par(mar = c(12,4,1,1))
-b <- barplot(sort(colSums(d[9:(ncol(d)-2)], na.rm=T)), las=2)
+par(mar = c(6,5,1,1), mfrow = c(2,1))
+b <- barplot(sort(colSums(d[9:(ncol(d)-2)], na.rm=T)), las=2, ylab = "total #")
 
-nn <- 20   # define number of spp to be considered
-
+nn <- 10   # define number of spp to be considered
 abline(v = min(tail(b, nn))-0.5, col = 2)
 
-splis <- names(sort(colSums(d[9:(ncol(d)-2)], na.rm=T), decreasing=T))[1:nn]
+colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)
+sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))
+barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2, ylab = "occurrence")
+which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01)
+
+abline(v = min(tail(b, 10))-0.5, col = 2)
+
+splis <- names(sort(colSums(d[9:(ncol(d)-2)], na.rm = T), decreasing = T))[1:nn]    
+
+splis1 <- names(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d), decreasing = T))[1:10]
 splis
+splis1
 spleg <- splis
+spleg1 <- splis1
 
 for (i in 1:length(splis))  {
-    if (grepl("_", splis[i]) == TRUE)  {
-      spleg[i] <- paste(unlist(strsplit(splis[i], "_"))[1], unlist(strsplit(splis[i], "_"))[2])
-    }
-}
-spleg <- str_to_sentence(spleg)
+  if (grepl("_", splis[i]) == TRUE)  {
+    spleg[i] <- paste(unlist(strsplit(splis[i], "_"))[1], unlist(strsplit(splis[i], "_"))[2])
+  } }
+for (i in 1:length(splis1))  {
+  if (grepl("_", splis1[i]) == TRUE)  {
+    spleg1[i] <- paste(unlist(strsplit(splis1[i], "_"))[1], unlist(strsplit(splis1[i], "_"))[2])
+  } }
 
-#spleg[10] <- "Amberjacks"
-#spleg[12] <- "Tilefish"
+spleg <- str_to_sentence(spleg)
+spleg1 <- str_to_sentence(spleg1)
+
+spleg[grep("Amberjack", spleg)] <- "Amberjacks"
+spleg[grep("ilefish", spleg)] <- "Tilefish"
+spleg1[grep("Amberjack", spleg1)] <- "Amberjacks"
+spleg1[grep("ilefish", spleg1)] <- "Tilefish"
 
 cbind(splis, spleg)
+cbind(splis1, spleg1)
 
 # Plot formatting specs ---------------------------------
-
+dev.off()
 tab <- glasbey(26)[5:17]
 cols <- c("#00000030", "#00000090", yarrr::transparent(tab[1:(nn-2)], trans.val = 0.5))
 pchs <- c(17, 17, rep(19, nn-2))
@@ -102,28 +125,53 @@ dy <- as.numeric(strftime(as.Date(dlis, "%d%b"), format = "%j"))
 
 # Plot raw data -----------------------------------------
 plot(d$doy, d[,splis[1]],  xlab = "time of year", ylab = "number caught", 
-     axes = F, ylim = c(0, max(d[9:(ncol(d)-2)] + 1, na.rm = T)), col = 0)
+     axes = F, ylim = c(0, (max(d[9:(ncol(d)-2)] + 1, na.rm = T))), col = 0)
 for (i in 1:nn) { 
-  points(d$doy, d[,which(names(d) == splis[i])], col = cols[i], pch = pchs[i], cex = cexs[i])                        
+  points(d$doy, (d[,which(names(d) == splis[i])]), col = cols[i], pch = pchs[i], cex = cexs[i])                        
   } 
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
+la <- c(1:5, 10, 15, 20, 25)
+#axis(2, las = 2, at = log(la), lab = la); box()
 axis(2, las = 2); box()
 legend("topleft", spleg, col = cols, pch = pchs, pt.cex = cexs, ncol = 1)
 
 
 # Plot smoothed data ------------------------------------
+par(mfrow = c(1,2), mar = c(3,3,1,1))
 plot(d$doy, d[,splis[1]], ylim = c(0, 11), col = 0, 
-     xlab = "time of year", ylab = "", axes = F)
-mtext(side = 2, line = 2, "relative importance")
+     xlab = "", ylab = "", axes = F)
+mtext(side = 2, line = 0.5, "relative importance\n(total number)")
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
-legend("topleft", spleg, lwd=3, col=cols)
-
+legend("topleft", spleg, lwd=3, col=cols, ncol=1, bty= "n")
 for (i in 1:nn)  { 
   y <- d[,which(names(d) == splis[i])]
-  y[is.na(y)] <- 0
-  ks <- ksmooth(d$doy, y, "normal", bandwidth=40, range.x = c(1, 365), n.points = 365) 
+  y[is.na(y)] <- 0  
+  ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
   lines(ks$x, ks$y, col=cols[i], lwd=3)  
 }
+
+cols1 <- rep(NA, length(splis1))
+for (i in 1:length(splis1))  { 
+  if (splis1[i] %in% splis) {
+  cols1[i] <- cols[which(splis == splis1[i])] }  else {
+  cols1[i] <- yarrr::transparent(alphabet(20), trans.val = 0.5)[i] } }
+cols1
+
+plot(d$doy, d[,splis1[1]], ylim = c(0, 1), col = 0, 
+     xlab = "", ylab = "", axes = F)
+mtext(side = 2, line = 0.5, "relative importance\n(presence/absence)")
+axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
+legend("topleft", spleg1, lwd=3, col=cols1, ncol = 1, bty="n")
+for (i in 1:length(splis1))  { 
+  y <- d[,which(names(d) == splis1[i])]
+  #y <- log(y)
+  y[which(y > 1)] <- 1
+  y[is.na(y)] <- 0  
+  ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
+  lines(ks$x, ks$y, col=cols1[i], lwd=3)  
+}
+
+dev.off()
 
 # Plot monthly barplot ----------------------------------
 m1 <- c()
@@ -144,9 +192,32 @@ axis(2, las = 2)
 legend("topleft", spleg, col = cols, pch = 15, cex = 1.2)
 
 # Plot correlations ----------------------------------
+
+colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)
+sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))
+par(mar=c(12, 4, 1, 1))
+barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2)
+which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01)
+
+splis <- names(which(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d) > 0.01))
+splis
+spleg <- splis
+
+for (i in 1:length(splis))  {
+  if (grepl("_", splis[i]) == TRUE)  {
+    spleg[i] <- paste(unlist(strsplit(splis[i], "_"))[1], unlist(strsplit(splis[i], "_"))[2])
+  }
+}
+spleg <- str_to_sentence(spleg)
+
+spleg[grep("Amberjack", spleg)] <- "Amberjacks"
+spleg[grep("ilefish", spleg)] <- "Tilefish"
+
+cbind(splis, spleg)
+
 d1 <- d[,which(names(d) %in% splis)]
 d1[is.na(d1)] <- 0
-plot(d1)
+#plot(d1)
 
 dcor <- cor(d1, method="spearman")
 dcor[which(dcor==1)] <- NA
@@ -156,8 +227,8 @@ par(mar=c(8,8,1,3))
 image.plot(dcor, axes=F, 
            col = brewer.pal(n = 11, name = "RdBu"), 
            breaks=seq(-0.6, 0.6, length.out = 12))
-axis(1, at = seq(0, 1, length.out = nn), lab = spleg, las = 2)
-axis(2, at = seq(0, 1, length.out = nn), lab = spleg, las = 2)
+axis(1, at = seq(0, 1, length.out = length(splis)), lab = spleg, las = 2)
+axis(2, at = seq(0, 1, length.out = length(splis)), lab = spleg, las = 2)
 mtext(side = 4, line = 1, "correlation coefficient")
 box()
 
@@ -170,129 +241,15 @@ par(mar=c(8,8,1,3))
 image.plot(dcor2, axes=F, 
            col = brewer.pal(n = 11, name = "RdBu"), 
            breaks=seq(-0.6, 0.6, length.out = 12))
-axis(1, at = seq(0, 1, length.out = nn), lab = spleg, las = 2)
-axis(2, at = seq(0, 1, length.out = nn), lab = spleg, las = 2)
+axis(1, at = seq(0, 1, length.out = length(splis)), lab = spleg, las = 2)
+axis(2, at = seq(0, 1, length.out = length(splis)), lab = spleg, las = 2)
 mtext(side = 4, line = 1, "correlation coefficient")
 box()
 
 d3 <- t(d1)
 rownames(d3) 
-spleg2 <- splis
-for (i in 1:length(splis)) { spleg2[i] <- spleg[which(splis == rownames(d3)[i])] } 
-cbind(rownames(d3), spleg2) 
 hc <- hclust(dist(d3, method = "binary"), method = "ward.D2")
 #plot(hc)
-plot(hc, labels = spleg2)
-
-# NMDS ----------------------------------
-d1 <- d[,9:(ncol(d)-2)]
-d1[is.na(d1)] <- 0
-
-d2 <- d
-d2 <- d2[-which(rowSums(d1) == 0),]
-d1 <- d1[-which(rowSums(d1) == 0),]
-
-d1 <- d1 + abs(rnorm(prod(dim(d1)), sd=0.01))
-
-#for (i in 1:ncol(d1))  { 
-#    d1[,i] <- d1[,i] / max(d1[,i])
-#  }
-
-mclass <- cut(d2$month, breaks = c(0, 5.5, 7.5, 9.5, 11.5))
-
-d$reg2 <- NA
-d2$reg2[which(d2$marina == "Hatteras Harbor Marina")] <- "Hatteras"
-d2$reg2[which(d2$marina == "Oregon Inlet Fishing Center")] <- "Wanchese"
-d2$reg2[which(d2$marina == "Virginia Beach Fishing Center")] <- "VA Beach"
-d2$reg2[which(d2$marina == "Pirate's Cove Marina")] <- "Wanchese"
-d2$reg2[which(d2$marina == "Sensational Sportfishing")] <- "Morehead"
-
-d2$mon2 <- d2$month
-table(d2$mon2, useNA = "always")
-#d2$mon2[d2$mon2 <=4] <- 4
-
-dim(d1)
-
-plot(colSums(d1))
-
-d1.dist <- vegdist(d1, method = "bray")
-pc <- isoMDS(d1.dist, k=2, trace=T, tol = 1e-3)
-
-#pc <- metaMDS(d1d, k = 2, autotransform = F, trymax = 50)
-
-x <- pc$points[,1]
-y <- pc$points[,2]
-
-plot(x, y, col = as.numeric(mclass), pch=16)
-plot(x, y, col = as.numeric(d2$marina), pch=16)
-plot(x, y, col = d2$year - 2018, pch=16)
-plot(x, y, col = as.numeric(d2$region), pch=16)
-
-dmar.ano  <- anosim(d1.dist, d2$marina)
-dyr.ano  <- anosim(d1.dist, d2$year)
-dreg.ano  <- anosim(d1.dist, d2$region)
-dmon.ano  <- anosim(d1.dist, d2$mon2)
-dreg2.ano  <- anosim(d1.dist, d2$reg2)
-dmon2.ano  <- anosim(d1.dist, mclass)
-
-summary(dmar.ano)
-summary(dreg.ano)
-summary(dreg2.ano)
-summary(dyr.ano)
-summary(dmon.ano)
-summary(dmon2.ano)
-
-# plot ANOSIM results -------------------------
-par(mfrow=c(3,2), mex = 1.5, mar = c(9,3,1,1))
-plot(dmar.ano, las=2, xlab="")
-plot(dreg.ano, las=2, xlab="")
-
-par(mex = 1.5, mar = c(4,3,1,1))
-plot(dreg2.ano, las=2, xlab="")
-plot(dyr.ano, las=1, xlab="")
-plot(dmon.ano, las=1, xlab="", axes = F)
-axis(1, at = 1:9, lab = c("Between", month.abb[4:11]), las = 2)
-axis(2); box()
-plot(dmon2.ano, las=2, xlab="", axes=F)
-axis(1, at = 1:5, lab = c("Between", "Jan-May", "Jun-Jul", "Aug-Sep", "Oct-Nov"), las = 2)
-axis(2); box()
-
-# ordination plots -------------------
-
-par(mfrow=c(3,2), mex = 1.5, mar = c(1,1,1,1))
-
-cols <- viridis(5)
-plot(x, y, col = cols[as.numeric(d2$marina)-1], pch=16) #, xlim = c(-1.5, 2))
-ordiellipse(pc, d2$marina, col = cols, lwd=2, kind = "sd", label = T)
-tab <- table(as.numeric(d2$marina)-1, d2$marina)
-legend("topleft", ncol = 2, colnames(tab)[2:6], col = cols, pch = 16, cex=0.8)
-
-cols <- c(1, 2)
-plot(x, y, col = cols[as.numeric(d2$region)-1], pch=16)
-ordiellipse(pc, d2$region, col = cols, lwd=2, kind = "sd", label = T)
-legend("topleft", ncol = 2, c("NC", "VA"), col = cols, pch = 16)
-
-cols <- 5:8
-table(as.numeric(as.factor(d2$reg2)), d2$reg2)
-plot(x, y, col = cols[as.numeric(as.factor(d2$reg2))], pch=16)
-ordiellipse(pc, d2$reg2, col = cols, lwd=2, kind = "sd", label = T)
-legend("topleft", ncol = 2, c("Hatteras", "Morehead", "VA Beach", "Wanchese"), col = cols, pch = 16)
-
-cols <- c(3, 4)
-plot(x, y, col = cols[d2$year - 2012], pch=16)
-ordiellipse(pc, d2$year, col = cols, lwd=2, kind = "sd", label = T)
-legend("topleft", ncol = 2, c("2019", "2020"), col = cols, pch = 16)
-
-cols <- viridis(12)
-plot(x, y, col = cols[(as.numeric(d2$mon2))], pch=16)
-ordiellipse(pc, d2$mon2, col = cols, lwd=2, kind = "sd", label = T, cex=1)
-legend("topleft", ncol = 4, c(month.abb[4:11]), col = cols, pch = 16)
-
-cols <- viridis(4)
-plot(x, y, col = cols[as.numeric(mclass)], pch=16)
-ordiellipse(pc, mclass, col = cols, lwd=2, kind = "sd", label = T)
-legend("topleft", ncol = 4, c("Jan-May", "Jun-Jul", "Aug-Sep", "Oct-Nov"), col = cols, pch = 16)
-
-
+plot(hc, labels = spleg, xlab = "")
 
 # The end ------------------------------
