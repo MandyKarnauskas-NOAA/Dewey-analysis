@@ -9,13 +9,13 @@ rm(list=ls())
 setwd("C:/Users/mandy.karnauskas/Desktop/participatory_workshops/Dewey_analysis")
 
 # Install libraries ------------------------------------
-if ("RColorBrewer" %in% available.packages() == FALSE) { install.packages("RColorBrewer") } 
-if ("fields" %in% available.packages() == FALSE) { install.packages("fields") } 
-if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
-if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
-if ("stringr" %in% available.packages() == FALSE) { install.packages("stringr") }
-if ("pals" %in% available.packages() == FALSE) { install.packages("pals") } 
-if ("yarrr" %in% available.packages() == FALSE) { install.packages("yarrr") } 
+# if ("RColorBrewer" %in% available.packages() == FALSE) { install.packages("RColorBrewer") } 
+# if ("fields" %in% available.packages() == FALSE) { install.packages("fields") } 
+# if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
+# if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
+# if ("stringr" %in% available.packages() == FALSE) { install.packages("stringr") }
+# if ("pals" %in% available.packages() == FALSE) { install.packages("pals") } 
+# if ("yarrr" %in% available.packages() == FALSE) { install.packages("yarrr") } 
 
 library(yarrr)
 library(pals)
@@ -27,8 +27,8 @@ library(viridis)
 library(stringr)
 
 # Load data --------------------------------------------
-d <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
-#d <- read.table("Charter_PhotoCount_NC_VA.csv",  
+ d <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
+# d <- read.table("Charter__NCVA_8_12_20.csv",  
              header = T, sep = ",", check.names = F, quote = "")
 
 head(d)
@@ -44,16 +44,19 @@ table(d$photo_ID, useNA = "always")
 table(d$year, useNA = "always")
 
 table(d$photo_type, useNA = "always")
-d <- d[which(d$photo_type == "layout"),]
 dim(d)
+names(d)
 
+#d <- d[-which(names(d) == "Mahi_Gaffers")]
+#names(d)[grep("Unk_Mahi", names(d))] <- "mahi_gaffers"
 totalMahiGaffers <- rowSums(d[,grep("mahi_gaffers", tolower(names(d)))], na.rm=T)
 d <- d[,-grep("mahi_gaffers", tolower(names(d)))]
-d <- d[,-grep("notes", tolower(names(d)))]
+if (sum(grepl("notes", tolower(names(d)))) > 0) {d <- d[,-grep("notes", tolower(names(d)))]}
 
 totalMahiGaffers[which(totalMahiGaffers == 0)] <- NA
 d$mahi_gaffers <- totalMahiGaffers
 names(d)
+table(rowSums(d[9:(ncol(d))], na.rm = T) == 0)
 
 # Format dates -----------------------------------------
 d$date <- as.Date(paste0(d$day, "/", sprintf("%02d", d$month)), "%d/%m")
@@ -61,6 +64,13 @@ d$doy <- as.numeric(strftime(d$date, format = "%j"))                        # co
 
 names(d)
 names(d)[9:(ncol(d)-2)]         # check that this is all the species columns
+
+# Plot number of mahi caught per trip ------------------
+
+totMahi <- d$mahi_bailers + d$mahi_gaffers
+hist(totMahi, xlab = "total number of dolphin per trip", breaks = seq(0, 75, 5), axes = F, main = "")
+axis(1, at = seq(0, 75, 5), line = 0)
+axis(2, las = 2)
 
 # Create list of top species ---------------------------
 
@@ -73,7 +83,7 @@ nn <- 10   # define number of spp to be considered
 abline(v = min(tail(b, nn))-0.5, col = 2)
 
 colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)
-sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))
+sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))*100
 barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2, ylab = "occurrence")
 which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01)
 
@@ -103,6 +113,8 @@ spleg[grep("Amberjack", spleg)] <- "Amberjacks"
 spleg[grep("ilefish", spleg)] <- "Tilefish"
 spleg1[grep("Amberjack", spleg1)] <- "Amberjacks"
 spleg1[grep("ilefish", spleg1)] <- "Tilefish"
+spleg[grep("Black sea", spleg)] <- "Black sea bass"
+spleg1[grep("Black sea", spleg1)] <- "Black sea bass"
 
 cbind(splis, spleg)
 cbind(splis1, spleg1)
@@ -125,7 +137,7 @@ dy <- as.numeric(strftime(as.Date(dlis, "%d%b"), format = "%j"))
 
 # Plot raw data -----------------------------------------
 plot(d$doy, d[,splis[1]],  xlab = "time of year", ylab = "number caught", 
-     axes = F, ylim = c(0, (max(d[9:(ncol(d)-2)] + 1, na.rm = T))), col = 0)
+     axes = F, ylim = c(0, (max(d[9:(ncol(d)-2)] + 0.1, na.rm = T))), col = 0)
 for (i in 1:nn) { 
   points(d$doy, (d[,which(names(d) == splis[i])]), col = cols[i], pch = pchs[i], cex = cexs[i])                        
   } 
@@ -138,7 +150,7 @@ legend("topleft", spleg, col = cols, pch = pchs, pt.cex = cexs, ncol = 1)
 
 # Plot smoothed data ------------------------------------
 par(mfrow = c(1,2), mar = c(3,3,1,1))
-plot(d$doy, d[,splis[1]], ylim = c(0, 11), col = 0, 
+plot(d$doy, d[,splis[1]], ylim = c(0, 18.5), col = 0, xlim = c(1, 365),
      xlab = "", ylab = "", axes = F)
 mtext(side = 2, line = 0.5, "relative importance\n(total number)")
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
@@ -157,11 +169,11 @@ for (i in 1:length(splis1))  {
   cols1[i] <- yarrr::transparent(alphabet(20), trans.val = 0.5)[i] } }
 cols1
 
-plot(d$doy, d[,splis1[1]], ylim = c(0, 1), col = 0, 
+plot(d$doy, d[,splis1[1]], ylim = c(0, 1.3), col = 0, xlim = c(1, 365),
      xlab = "", ylab = "", axes = F)
 mtext(side = 2, line = 0.5, "relative importance\n(presence/absence)")
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
-legend("topleft", spleg1, lwd=3, col=cols1, ncol = 1, bty="n")
+legend("topleft", spleg1, lwd = 3, col = cols1, bty = "n", ncol = 2)
 for (i in 1:length(splis1))  { 
   y <- d[,which(names(d) == splis1[i])]
   #y <- log(y)
@@ -197,7 +209,7 @@ colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)
 sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))
 par(mar=c(12, 4, 1, 1))
 barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2)
-which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01)
+which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.02)
 
 splis <- names(which(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d) > 0.01))
 splis
@@ -212,6 +224,7 @@ spleg <- str_to_sentence(spleg)
 
 spleg[grep("Amberjack", spleg)] <- "Amberjacks"
 spleg[grep("ilefish", spleg)] <- "Tilefish"
+spleg[grep("Black sea", spleg)] <- "Black sea bass"
 
 cbind(splis, spleg)
 
@@ -250,6 +263,7 @@ d3 <- t(d1)
 rownames(d3) 
 hc <- hclust(dist(d3, method = "binary"), method = "ward.D2")
 #plot(hc)
-plot(hc, labels = spleg, xlab = "")
+par(mar = c(2, 5, 1, 1))
+plot(hc, labels = spleg, xlab = "", main = "")
 
 # The end ------------------------------
