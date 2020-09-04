@@ -27,8 +27,8 @@ library(viridis)
 library(stringr)
 
 # Load data --------------------------------------------
- d <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
-# d <- read.table("Charter__NCVA_8_12_20.csv",  
+# d <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
+ d <- read.table("Charter__NCVA_8_12_20.csv",  
              header = T, sep = ",", check.names = F, quote = "")
 
 head(d)
@@ -47,8 +47,8 @@ table(d$photo_type, useNA = "always")
 dim(d)
 names(d)
 
-#d <- d[-which(names(d) == "Mahi_Gaffers")]
-#names(d)[grep("Unk_Mahi", names(d))] <- "mahi_gaffers"
+d <- d[-which(names(d) == "Mahi_Gaffers")]
+names(d)[grep("Unk_Mahi", names(d))] <- "mahi_gaffers"
 totalMahiGaffers <- rowSums(d[,grep("mahi_gaffers", tolower(names(d)))], na.rm=T)
 d <- d[,-grep("mahi_gaffers", tolower(names(d)))]
 if (sum(grepl("notes", tolower(names(d)))) > 0) {d <- d[,-grep("notes", tolower(names(d)))]}
@@ -57,6 +57,10 @@ totalMahiGaffers[which(totalMahiGaffers == 0)] <- NA
 d$mahi_gaffers <- totalMahiGaffers
 names(d)
 table(rowSums(d[9:(ncol(d))], na.rm = T) == 0)
+
+names(d)[grep("ilefish", names(d))] <- "Tilefish"
+names(d)[grep("Amberjack", names(d))] <- "Amberjacks"
+names(d)
 
 # Format dates -----------------------------------------
 d$date <- as.Date(paste0(d$day, "/", sprintf("%02d", d$month)), "%d/%m")
@@ -87,50 +91,22 @@ sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))*100
 barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2, ylab = "occurrence")
 which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01)
 
-abline(v = min(tail(b, 10))-0.5, col = 2)
+nn2 <- length(which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.01))  # define min occurance rate here
+abline(v = min(tail(b, nn2))-0.5, col = 2)                                    # use 0.05 for FL   
 
 splis <- names(sort(colSums(d[9:(ncol(d)-2)], na.rm = T), decreasing = T))[1:nn]    
-
-splis1 <- names(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d), decreasing = T))[1:10]
+spliso <- names(which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d), decreasing = T) > 0.01)) # 0.05 for FL, 0.01 for NC
 splis
-splis1
-spleg <- splis
-spleg1 <- splis1
-
-for (i in 1:length(splis))  {
-  if (grepl("_", splis[i]) == TRUE)  {
-    spleg[i] <- paste(unlist(strsplit(splis[i], "_"))[1], unlist(strsplit(splis[i], "_"))[2])
-  } }
-for (i in 1:length(splis1))  {
-  if (grepl("_", splis1[i]) == TRUE)  {
-    spleg1[i] <- paste(unlist(strsplit(splis1[i], "_"))[1], unlist(strsplit(splis1[i], "_"))[2])
-  } }
-
-spleg <- str_to_sentence(spleg)
-spleg1 <- str_to_sentence(spleg1)
-
-spleg[grep("Amberjack", spleg)] <- "Amberjacks"
-spleg[grep("ilefish", spleg)] <- "Tilefish"
-spleg1[grep("Amberjack", spleg1)] <- "Amberjacks"
-spleg1[grep("ilefish", spleg1)] <- "Tilefish"
-spleg[grep("Black sea", spleg)] <- "Black sea bass"
-spleg1[grep("Black sea", spleg1)] <- "Black sea bass"
-
-cbind(splis, spleg)
-cbind(splis1, spleg1)
+spliso
 
 # Plot formatting specs ---------------------------------
 dev.off()
-tab <- glasbey(26)[5:17]
-cols <- c("#00000030", "#00000090", yarrr::transparent(tab[1:(nn-2)], trans.val = 0.5))
-pchs <- c(17, 17, rep(19, nn-2))
-cexs <- c(1.2, 1.4, rep(1, nn-2))
-cexs[which(splis == "wahoo")] <- 1.3
-pchs[which(splis == "wahoo")] <- 18
 
-cbind(splis, spleg, cols, pchs, cexs)
-plot(rep(1, nn), 1:nn, col = cols, pch = pchs, cex = cexs, axes=F)
-text(rep(0.9, nn), 1:nn, spleg)
+leg <- read.csv("colors.csv", sep = ",", header = T, quote = "\"", stringsAsFactors = F)
+leg$cols[3:25] <- transparent(leg$cols[3:25], trans.val = 0.3)
+
+plot(rep(1, nn), 1:nn, col = leg$cols, pch = leg$pchs, cex = leg$cexs*3, axes=F)
+text(rep(0.8, nn), 1:nn, leg$spleg[1:nn])
 
 dlis <- c("15jan", "15mar", "15may", "15jul", "15sep", "15nov")
 dy <- as.numeric(strftime(as.Date(dlis, "%d%b"), format = "%j"))
@@ -138,81 +114,99 @@ dy <- as.numeric(strftime(as.Date(dlis, "%d%b"), format = "%j"))
 # Plot raw data -----------------------------------------
 plot(d$doy, d[,splis[1]],  xlab = "time of year", ylab = "number caught", 
      axes = F, ylim = c(0, (max(d[9:(ncol(d)-2)] + 0.1, na.rm = T))), col = 0)
-for (i in 1:nn) { 
-  points(d$doy, (d[,which(names(d) == splis[i])]), col = cols[i], pch = pchs[i], cex = cexs[i])                        
+mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
+for (i in 1:nn) {  
+  points(d$doy, d[,which(names(d) == splis[i])], col = leg$cols[mm][i], pch = leg$pchs[mm][i], cex = leg$cexs[mm][i])                        
   } 
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
 la <- c(1:5, 10, 15, 20, 25)
 #axis(2, las = 2, at = log(la), lab = la); box()
 axis(2, las = 2); box()
-legend("topleft", spleg, col = cols, pch = pchs, pt.cex = cexs, ncol = 1)
+legend("topleft", leg$spleg[mm], col = leg$cols[mm], pch = leg$pchs[mm], pt.cex = leg$cexs[mm], ncol = 1)
 
+#dev.print(png,"NC_raw.png", width = 700, height = 500)
+dev.off()
+
+# Barplot of usage across time of year ------------------
+
+bimon <- c(paste0(1, month.abb), paste0(16, month.abb), "31Dec")
+bimondoy <- sort(as.numeric(strftime(as.Date(bimon, "%d%b"), format = "%j")))
+bimondoy[1] <- 0
+table(diff(bimondoy))
+
+d$monbin <- cut(d$doy, bimondoy)
+table(d$monbin, useNA = "always")
+
+par(mfrow = c(2, 2), mar = c(4, 4, 1, 1), mgp = c(3, 1, 0))
+
+# plot proportion of catch 
+nummon <- apply(d[,splis], 2, function(x) tapply(x, d$monbin, sum, na.rm = T))
+permon <- apply(nummon, 1, function(x) (x / sum(x)))
+mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
+
+b <- barplot(permon, col = leg$cols[mm], xlim = c(1, 35), axes = F, space = 0, border = NA, names.arg = rep("", ncol(permon)),
+             legend.text = leg$spleg[mm], args.legend = list(x = "right", bty = "n"), ylab = "proportion of catch")
+axis(1, at = c(b - mean(diff(b))/2, max(b) + mean(diff(b))/2)[seq(1, length(b)+2, 2)], 
+     lab = c(paste(month.abb, 1), "Dec 31"), las = 2)
+axis(2, las = 2)
+
+# plot occurrence of catch
+occmon <- apply(d[,spliso] > 0, 2, function(x) tapply(x, d$monbin, sum, na.rm = T))
+promon <- apply(occmon, 1, function(x) (x / sum(x)))
+
+mm <- unlist(lapply(rownames(promon), function(x) which(x == leg$spnam)))
+b <- barplot(promon, col = leg$cols[mm], xlim = c(1, 35), axes = F, space = 0, border = NA, names.arg = rep("", ncol(promon)),
+             legend.text = leg$spleg[mm], args.legend = list(x = "right", bty = "n"), ylab = "proportion of occurrences")
+axis(1, at = c(b - mean(diff(b))/2, max(b) + mean(diff(b))/2)[seq(1, length(b)+2, 2)], 
+        lab = c(paste(month.abb, 1), "Dec 31"), las = 2)
+axis(2, las = 2)
 
 # Plot smoothed data ------------------------------------
-par(mfrow = c(1,2), mar = c(3,3,1,1))
-plot(d$doy, d[,splis[1]], ylim = c(0, 18.5), col = 0, xlim = c(1, 365),
-     xlab = "", ylab = "", axes = F)
-mtext(side = 2, line = 0.5, "relative importance\n(total number)")
-axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
-legend("topleft", spleg, lwd=3, col=cols, ncol=1, bty= "n")
+par(mgp = c(1.5, 1, 0))
+plot(d$doy, d[,splis[1]], ylim = c(0, 18), col = 0, xlim = c(1, 550),   # ylim 10 for FL, 18 for NC
+     xlab = "", axes = F, ylab = "relative importance\n(total number)")
+axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
+axis(1, at = c(0, 365), lab = c("", ""), tck = 0)
+
+mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
+legend("right", leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 0.9)
 for (i in 1:nn)  { 
   y <- d[,which(names(d) == splis[i])]
   y[is.na(y)] <- 0  
   ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
-  lines(ks$x, ks$y, col=cols[i], lwd=3)  
+  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 3)  
 }
 
-cols1 <- rep(NA, length(splis1))
-for (i in 1:length(splis1))  { 
-  if (splis1[i] %in% splis) {
-  cols1[i] <- cols[which(splis == splis1[i])] }  else {
-  cols1[i] <- yarrr::transparent(alphabet(20), trans.val = 0.5)[i] } }
-cols1
+plot(d$doy, d[,spliso[1]], ylim = c(0, 1.3), col = 0, xlim = c(1, 550),        # 0.9 for FL, 1.3 for NC
+     xlab = "", axes = F, ylab = "relative importance\n(presence/absence)")
+axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
+axis(1, at = c(0, 365), lab = c("", ""), tck = 0)
 
-plot(d$doy, d[,splis1[1]], ylim = c(0, 1.3), col = 0, xlim = c(1, 365),
-     xlab = "", ylab = "", axes = F)
-mtext(side = 2, line = 0.5, "relative importance\n(presence/absence)")
-axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)]); box()
-legend("topleft", spleg1, lwd = 3, col = cols1, bty = "n", ncol = 2)
-for (i in 1:length(splis1))  { 
-  y <- d[,which(names(d) == splis1[i])]
+mm <- unlist(lapply(spliso, function(x) which(x == leg$spnam)))
+legend("right", leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 0.9)
+for (i in 1:length(spliso))  { 
+  y <- d[,which(names(d) == spliso[i])]
   #y <- log(y)
   y[which(y > 1)] <- 1
   y[is.na(y)] <- 0  
   ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
-  lines(ks$x, ks$y, col=cols1[i], lwd=3)  
+  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 3)  
 }
 
+dev.print(png,"NC_seasonal.png", width = 780, height = 600)
 dev.off()
-
-# Plot monthly barplot ----------------------------------
-m1 <- c()
-for (i in 1:nn)  { 
-  y <- d[,which(names(d) == splis[i])]
-  y[is.na(y)] <- 0
-  m <- tapply(y, d$month, sum, na.rm=T)
-  mp <- m / sum(m)
-  m1 <- cbind(m1, mp)
-}
-
-barplot(t(m1), beside=T, col=cols, names.arg = month.abb[1:12], 
-        axes=F, #ylim=c(0, 1000), 
-        ylab = "proportion of catch",
-        main = "relative distribution of catch by month")
-axis(2, las = 2)
-#abline(h=0)
-legend("topleft", spleg, col = cols, pch = 15, cex = 1.2)
 
 # Plot correlations ----------------------------------
 
-colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)
-sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d))
+colSums(!is.na(d[9:(ncol(d)-3)]))/nrow(d)
+sort(colSums(!is.na(d[9:(ncol(d)-3)]))/nrow(d))
 par(mar=c(12, 4, 1, 1))
-barplot(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)), las = 2)
-which(sort(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d)) > 0.02)
+barplot(sort(colSums(!is.na(d[9:(ncol(d)-3)]))/nrow(d)), las = 2)
+which(sort(colSums(!is.na(d[9:(ncol(d)-3)]))/nrow(d)) > 0.02)
 
-splis <- names(which(colSums(!is.na(d[9:(ncol(d)-2)]))/nrow(d) > 0.01))
+splis <- names(which(colSums(!is.na(d[9:(ncol(d)-3)]))/nrow(d) > 0.01)) # define occ rate here
 splis
+
 spleg <- splis
 
 for (i in 1:length(splis))  {
@@ -221,10 +215,6 @@ for (i in 1:length(splis))  {
   }
 }
 spleg <- str_to_sentence(spleg)
-
-spleg[grep("Amberjack", spleg)] <- "Amberjacks"
-spleg[grep("ilefish", spleg)] <- "Tilefish"
-spleg[grep("Black sea", spleg)] <- "Black sea bass"
 
 cbind(splis, spleg)
 
@@ -265,5 +255,7 @@ hc <- hclust(dist(d3, method = "binary"), method = "ward.D2")
 #plot(hc)
 par(mar = c(2, 5, 1, 1))
 plot(hc, labels = spleg, xlab = "", main = "")
+
+#dev.print(png,"FL_cluster.png", width = 780, height = 600)
 
 # The end ------------------------------
