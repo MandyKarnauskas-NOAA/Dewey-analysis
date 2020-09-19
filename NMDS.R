@@ -10,8 +10,8 @@ rm(list=ls())
 setwd("C:/Users/mandy.karnauskas/Desktop/participatory_workshops/Dewey_analysis")
 
 # Install libraries ------------------------------------
-if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
-if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
+#if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
+#if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
 
 library(vegan)
 library(MASS)
@@ -19,22 +19,18 @@ library(viridis)
 library(yarrr)
 
 # Load data --------------------------------------------
-dfl <- read.table("Charter_SouthFloridaKeys_9_2_20_906Count.csv", 
+dfl <- read.table("Charter_SouthFloridaKeys_9_10_20_906Count.csv", 
+                header = T, sep = ",", check.names = F, quote = "")
+dnc <- read.table("Charter__NCVA_9_10_20_1340Count.csv", 
                 header = T, sep = ",", check.names = F, quote = "")
 
-dnc <- read.table("Charter__NCVA_8_12_20.csv", 
-                header = T, sep = ",", check.names = F, quote = "")
-
-#dfl$MAHI <- rowSums(dfl[,grep("ahi", names(dfl))], na.rm = T)
-#dfl <- dfl[,-grep("mahi", names(dfl))]
 #d <- dfl
-
-dnc <- dnc[,-grep("Mahi_Gaffers", names(dnc))]
-dnc$MAHI <- rowSums(dnc[,grep("ahi", names(dnc))], na.rm = T)
-dnc <- dnc[,-grep("ahi", names(dnc))]
-d <- dnc
+#d <- dnc
 
 # ONLY for analysis of two regions together ------------
+
+dfl[is.na(dfl)] <- 0
+dnc[is.na(dnc)] <- 0
 
 head(dfl)
 head(dnc)
@@ -42,42 +38,30 @@ names(dnc)[which(names(dnc) %in% names(dfl))]
 names(dnc)[-which(names(dnc) %in% names(dfl))]
 
 # modify names so that they match 
-names(dfl)[1] <- tolower(names(dfl)[1])
-names(dnc)[grep("Unk", names(dnc))] <- "mahi_gaffers" 
 names(dfl)[grep("Tilefish", names(dfl))] <- "Tilefish" 
 names(dfl)[grep("Spanish", names(dfl))] <- "Spanish_Mackerel" 
-names(dnc)[grep("Blackbelly_Rosefish", names(dnc))] <- "Blackbelly Rosefish" 
+
 dnc$tunas <- dnc$Tuna_Complex
-names(dfl)[grep("Amberjack", names(dfl))] <- "Amberjacks" 
-names(dnc)[grep("Amberjack", names(dnc))] <- "Amberjacks" 
+dfl$tunas <- dfl$Blackfin_Tuna + dfl$Skipjack_Tuna      # lump tunas
 
-dfl$tunas <- dfl$`Blackfin Tuna` + dfl$`Skipjack Tuna`      # lump tunas
 dfl$groupers <- rowSums(dfl[,grep("Grouper", names(dfl))], na.rm = T)
-dnc$groupers <- dnc$`Grouper Complex` + dnc$Black_Sea_Bass  # lump groupers
-
-table(dnc$mahi_gaffers + dnc$M_mahi_gaffers + dnc$F_mahi_gaffers == dnc$Mahi_Gaffers) # check that equivalent
-dfl$Mahi_Gaffers <- dfl$M_mahi_gaffers + dfl$F_mahi_gaffers + dfl$mahi_gaffers
-
-dfl$Ribbonfish <- NA                              # add two species not in FL 
-dfl$Marlin <- NA
+dnc$groupers <- dnc$Grouper_Complex + dnc$Black_Sea_Bass  # lump groupers
 
 names(dnc)[which(names(dnc) %in% names(dfl))]     # check names
 names(dnc)[-which(names(dnc) %in% names(dfl))]
+dnc <- dnc[which(names(dnc) %in% names(dfl))]
+names(dnc)[-which(names(dnc) %in% names(dfl))]
 
-dfl <- dfl[,-grep("mahi_gaffers", names(dfl))]    # remove lumped columns
-dfl <- dfl[,-grep("Tuna", names(dfl))]
+dfl <- dfl[,-grep("Tuna", names(dfl))]  # remove lumped columns
 dfl <- dfl[,-grep("Grouper", names(dfl))]
 
-dnc2 <- dnc[which(names(dnc) == names(dfl[1]))]   # sort columns in NC to match FL
-for (i in 2:ncol(dfl))  { 
-  if (ncol(dnc[which(names(dnc) == names(dfl[i]))]) == 1 ) {
-  dnc2 <- cbind(dnc2, dnc[which(names(dnc) == names(dfl[i]))]) } else {
-    dnc2 <- cbind(dnc2, rep(NA, nrow(dnc)))
-  }   }
+match(names(dnc), names(dfl))
+dfl2 <- dfl[match(names(dnc), names(dfl))]  # sort columns in NC to match FL
+head(dfl2)
+cbind(names(dfl2), names(dnc))
+table(names(dfl2) == names(dnc))
 
-names(dfl)[-which(names(dnc2) == names(dfl))]
-names(dnc2) <- names(dfl)
-d <- rbind(dfl, dnc2)        # combine into single data frame
+d <- rbind(dfl2, dnc)        # combine into single data frame
 
 
 # assign other variables ------------------------------------
@@ -86,21 +70,26 @@ names(d)
 table(d$region, useNA = "always")
 table(d$marina, useNA = "always")
 table(d$company, useNA = "always")
-table(d$photo_id, useNA = "always")
+table(d$photo_ID, useNA = "always")
 table(d$year, useNA = "always")
 table(d$month, useNA = "always")
 table(d$day, useNA = "always")
 table(d$photo_type, useNA = "always")
 dim(d)
 
-#d <- d[,-grep("notes", tolower(names(d)))]
+d <- d[,-grep("notes", tolower(names(d)))]
 names(d)
 
 d[is.na(d)] <- 0           # convert NAs to zeros
 dim(d)
 which(rowSums(d[,9:(ncol(d))]) == 0)
-#d <- d[-which(rowSums(d[,9:(ncol(d))]) == 0),]
+d <- d[-which(rowSums(d[,9:(ncol(d))]) == 0),]
 dim(d)
+
+d$totDolphin <- rowSums(d[grep("mahi", tolower(names(d)))], na.rm = T)
+d <- d[,-grep("mahi", tolower(names(d)))]
+
+names(d)[9:ncol(d)]
 
 d1 <- d[,9:(ncol(d))]     # separate object with spp counts only
 
@@ -113,7 +102,7 @@ d$mclass <- factor(labs[as.numeric(seas)], levels = labs)
 d$reg2 <- NA                                              # manually define regions
 d$reg2[grep("Hatteras", d$marina)] <- "Hatteras"
 d$reg2[which(d$marina == "Oregon Inlet Fishing Center")] <- "Wanchese"
-d$reg2[which(d$marina == "Virginia Beach Fishing Center")] <- "VA Beach"
+d$reg2[which(d$marina == "Virginia Beach Fishing Center")] <- "Virginia Beach"
 d$reg2[which(d$marina == "Pirate's Cove Marina")] <- "Wanchese"
 d$reg2[which(d$marina == "Sensational Sportfishing")] <- "Morehead"
 r1 <- c("Miami", "Hollywood", "Ft. Lauderdale", "Pompano Beach", "Deerfield Beach")
@@ -127,6 +116,9 @@ table(d$reg2, d$marina)
 table(d$mclass, useNA = "always")
 table(d$mclass, d$region)
 
+d$reg2 <- factor(d$reg2, levels = c("FL Keys", "Miami - Deerfield", "Boynton - Jupiter", "Morehead", 
+                          "Hatteras", "Wanchese", "Virginia Beach"))
+                          
 d$mon <- d$month                       # group months with few samples
 table(d$mon, useNA = "always")
 d$mon[d$mon <= 4] <- 4
@@ -136,11 +128,13 @@ d$mon2[which(d$mon2 == "Apr")] <- "Jan-Apr"
 d$mon2[which(d$mon2 == "Oct")] <- "Oct-Dec"
 d$mon2 <- factor(d$mon2, levels = c("Jan-Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct-Dec"))
 table(d$mon2, d$reg2, useNA = "always")
+table(d$mon2, d$month, useNA = "always")
 
 table(d$year)                         # group years with few samples
 d$yr2 <- as.character(d$year)
 d$yr2[which(d$year <= 2017)] <- "2013-17"
 table(d$yr2, useNA = "always")
+table(d$yr2, d$year, useNA = "always")
 
 # operations to spp matrix prior to NMDS -----------------
 dim(d1)
@@ -148,15 +142,16 @@ plot(colSums(d1))
 
 sort(colSums(d1 != 0) / nrow(d1) * 100)   # look at occurrence rates
 hist(colSums(d1 != 0) / nrow(d1) * 100, breaks = 40)
-which(colSums(d1 != 0) / nrow(d1) * 100 < 2)
-which(colSums(d1 != 0) / nrow(d1) * 100 > 2)
+which(colSums(d1 != 0) / nrow(d1) * 100 < 1)
+which(colSums(d1 != 0) / nrow(d1) * 100 > 1)
 
-splis <- which(colSums(d1 != 0) / nrow(d1) * 100 > 2)
-d1 <- d1[splis]
-dim(d1) 
-head(d1)
+splis <- which(colSums(d1 != 0) / nrow(d1) * 100 > 5) 
+splis
+d2 <- d1[splis]
+dim(d2) 
+head(d2)
 
-djit <- d1 + abs(rnorm(prod(dim(d1)), sd=0.01))  # jitter data because some exact like entries
+djit <- d2 + abs(rnorm(prod(dim(d2)), sd=0.01))  # jitter data because some exact like entries
 
 #for (i in 1:ncol(d1))  { d1[,i] <- d1[,i] / max(d1[,i]) }  # scale by max abundance
 
@@ -209,10 +204,10 @@ for (i in 1:6)  {
   
   ta <- table(as.numeric(as.factor(fact)), fact); ta
   plot(pc$points[,1], pc$points[,2], col = cols[as.numeric(as.factor(fact))], 
-       main = labs[i], pch = 16, cex = 0.6, xlim = c(-1, 1))  #  xlim = c(-0.8, 0.8))
+       main = labs[i], pch = 16, cex = 0.6) #, xlim = c(-1, 1))  #  xlim = c(-0.8, 0.8))
   ordiellipse(pc, fact, col = cols, lwd = 2, kind = "sd", label = F)
-  legend("topright", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], pch = 16, cex = 1)
-  text(x = -0.85, y = 0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
+  legend("bottomleft", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], pch = 16, cex = 1)
+  text(x = 0.80, y = -0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
 }
 
 
