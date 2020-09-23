@@ -10,8 +10,8 @@ rm(list=ls())
 setwd("C:/Users/mandy.karnauskas/Desktop/participatory_workshops/Dewey_analysis")
 
 # Install libraries ------------------------------------
-#if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
-#if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
+if ("vegan" %in% available.packages() == FALSE) { install.packages("vegan") } 
+if ("viridis" %in% available.packages() == FALSE) { install.packages("viridis") } 
 
 library(vegan)
 library(MASS)
@@ -19,10 +19,13 @@ library(viridis)
 library(yarrr)
 
 # Load data --------------------------------------------
-dfl <- read.table("Charter_SouthFloridaKeys_9_10_20_906Count.csv", 
+dfl <- read.table("Charter_SouthFloridaKeys_9_22_20_906Count.csv", 
                 header = T, sep = ",", check.names = F, quote = "")
-dnc <- read.table("Charter__NCVA_9_10_20_1340Count.csv", 
+dnc <- read.table("Charter__NCVA_9_22_20_1340Count.csv", 
                 header = T, sep = ",", check.names = F, quote = "")
+
+head(dfl)
+head(dnc)
 
 #d <- dfl
 #d <- dnc
@@ -63,6 +66,11 @@ table(names(dfl2) == names(dnc))
 
 d <- rbind(dfl2, dnc)        # combine into single data frame
 
+# output files for QAQC check
+#dfl_check <- dfl[round(runif(45, min = 1, max = 905)),]
+#dnc_check <- dnc[round(runif(17, min = 1, max = 1330)),]
+#write.table(dfl_check, file = "checkFL.csv", sep = ",", row.names = F)
+#write.table(dnc_check, file = "checkNC.csv", sep = ",", row.names = F, append = T)
 
 # assign other variables ------------------------------------
 names(d)
@@ -76,16 +84,13 @@ table(d$month, useNA = "always")
 table(d$day, useNA = "always")
 table(d$photo_type, useNA = "always")
 dim(d)
-
-d <- d[,-grep("notes", tolower(names(d)))]
 names(d)
 
 d[is.na(d)] <- 0           # convert NAs to zeros
 dim(d)
 which(rowSums(d[,9:(ncol(d))]) == 0)
-d <- d[-which(rowSums(d[,9:(ncol(d))]) == 0),]
-dim(d)
 
+names(d)[grep("mahi", tolower(names(d)))]
 d$totDolphin <- rowSums(d[grep("mahi", tolower(names(d)))], na.rm = T)
 d <- d[,-grep("mahi", tolower(names(d)))]
 
@@ -93,8 +98,8 @@ names(d)[9:ncol(d)]
 
 d1 <- d[,9:(ncol(d))]     # separate object with spp counts only
 
-seas <- cut(d$month, breaks = c(0, 3.5, 6.5, 9.5, 12.5))  # approximate seasons
-labs <- c("Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec")
+#seas <- cut(d$month, breaks = c(0, 3.5, 6.5, 9.5, 12.5))  # approximate seasons
+#labs <- c("Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec")
 seas <- cut(d$month, breaks = c(0, 5.5, 7.5, 9.5, 12.5))  # approximate seasons
 labs <- c("Jan-May", "Jun-Jul", "Aug-Sep", "Oct-Dec")
 d$mclass <- factor(labs[as.numeric(seas)], levels = labs)
@@ -112,7 +117,7 @@ d$reg2[which(d$marina %in% r1)] <- "Miami - Deerfield"
 d$reg2[which(d$marina %in% r2)] <- "Boynton - Jupiter"
 d$reg2[which(d$marina %in% r3)] <- "FL Keys"
 table(d$reg2, useNA = "always")
-table(d$reg2, d$marina)
+table(d$marina, d$reg2)
 table(d$mclass, useNA = "always")
 table(d$mclass, d$region)
 
@@ -145,7 +150,7 @@ hist(colSums(d1 != 0) / nrow(d1) * 100, breaks = 40)
 which(colSums(d1 != 0) / nrow(d1) * 100 < 1)
 which(colSums(d1 != 0) / nrow(d1) * 100 > 1)
 
-splis <- which(colSums(d1 != 0) / nrow(d1) * 100 > 5) 
+splis <- which(colSums(d1 != 0) / nrow(d1) * 100 > 1) 
 splis
 d2 <- d1[splis]
 dim(d2) 
@@ -162,6 +167,12 @@ d1.dist <- vegdist(djit, method = "bray")
 pc <- isoMDS(d1.dist, k = 2, trace = T, tol = 1e-3)
 #pc <- isoMDS(d1.dist, k = 3, trace = T, tol = 1e-3)
 
+pc3 <- isoMDS(d1.dist, k = 3, trace = T, tol = 1e-3)
+pc4 <- isoMDS(d1.dist, k = 4, trace = T, tol = 1e-3)
+pc5 <- isoMDS(d1.dist, k = 5, trace = T, tol = 1e-3)
+pc6 <- isoMDS(d1.dist, k = 6, trace = T, tol = 1e-3)
+
+
 # ANOSIM ---------------------------
 reg.ano <- anosim(d1.dist, d$region)
 reg2.ano <- anosim(d1.dist, d$reg2)
@@ -170,12 +181,16 @@ yr.ano <- anosim(d1.dist, d$yr2)
 mon.ano <- anosim(d1.dist, d$mon2)
 sea.ano <- anosim(d1.dist, d$mclass)
 
+save(list = c(reg.ano, reg2.ano, mar.ano, yr.ano, mon.ano, sea.ano), file = "ANOSIMres.RData")
+
 summary(reg.ano)
 summary(reg2.ano)
 summary(mar.ano)
 summary(yr.ano)
 summary(mon.ano)
 summary(sea.ano)
+
+#save(reg.ano, reg2.ano, mar.ano, yr.ano, mon.ano, sea.ano, file = "ANOSIMres.RData")
 
 Rvals <- c(reg.ano$statistic, reg2.ano$statistic, mar.ano$statistic, 
            yr.ano$statistic, mon.ano$statistic, sea.ano$statistic)
@@ -207,8 +222,31 @@ for (i in 1:6)  {
        main = labs[i], pch = 16, cex = 0.6) #, xlim = c(-1, 1))  #  xlim = c(-0.8, 0.8))
   ordiellipse(pc, fact, col = cols, lwd = 2, kind = "sd", label = F)
   legend("bottomleft", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], pch = 16, cex = 1)
-  text(x = 0.80, y = -0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
-}
+  text(x = 0.80, y = -0.85, paste("R =", round(Rvals[i], 2)), cex = 1.2)
+    }
+
+# final ordination plot -----------------------------------
+
+png(filename="NMDS_allregions.png", units="in", width=7, height=7, pointsize=12, res=72*4)
+cexs <- c(1, 0.8, 1, 1, 0.8, 0.8)
+
+par(mfrow=c(2,2), mex = 1.0, mar = c(2,3,2,1))
+for (i in c(1, 2, 4, 5))  {
+  fact <- d[,which(names(d) == factors[i])]
+  ta <- table(as.numeric(as.factor(fact)), fact); ta
+
+  cols <- rainbow(nrow(ta))
+  cols2 <- transparent(rainbow(nrow(ta)), trans.val = 0.6)
+    
+  plot(pc$points[,1], pc$points[,2], col = cols2[as.numeric(as.factor(fact))], 
+       main = labs[i], pch = 19, cex = 0.5, xlim = c(-1, 1), ylim = c(-1, 1), xlab = "", ylab = "")
+  ordiellipse(pc, fact, col = cols, lwd = 3, kind = "sd", label = F)
+  legend("bottomleft", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], 
+         pch = 15, cex = cexs[i], bty = "n")
+  text(x = 0.75, y = -0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
+  }
+
+dev.off()
 
 
 # NMDS sensitivity analysis for distance method -----------

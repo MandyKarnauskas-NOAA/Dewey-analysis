@@ -28,8 +28,11 @@ library(stringr)
 source("line2user.R")
 
 # Load data --------------------------------------------
-d <- read.table("Charter_SouthFloridaKeys_9_10_20_906Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "FL"
-#d <- read.table("Charter__NCVA_9_10_20_1340Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "NC"
+#d <- read.table("Charter_SouthFloridaKeys_9_22_20_906Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "FL"
+d <- read.table("Charter__NCVA_9_22_20_1340Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "NC"
+
+names(d)[grep("mahi", tolower(names(d)))]  
+# check to make sure only columns are: "Unk_Mahi" "M_mahi_gaffers" "F_mahi_gaffers" "mahi_bailers"
         
 if (st == "FL") { reglab <- "South Florida" } else { reglab <- "Morehead to Virginia Beach" }     
 st
@@ -42,6 +45,8 @@ table(d$marina, useNA = "always")
 table(d$company, useNA = "always")
 table(d$photo_ID, useNA = "always")
 table(d$year, useNA = "always")
+table(d$month, useNA = "always")
+table(d$day, useNA = "always")
 table(d$photo_type, useNA = "always")
 dim(d)
 names(d)
@@ -70,23 +75,32 @@ names(d)[9:(ncol(d)-2)]         # check that this is all the species columns
 
 # Plot number of mahi caught per trip ------------------
 
-bailers <- d$mahi_bailers 
-gaffers <- d$Mahi_gaffers
-bailers[bailers == 0] <- NA
-gaffers[gaffers == 0] <- NA
+#bailers <- d$mahi_bailers 
+#gaffers <- d$Mahi_gaffers
+#bailers[bailers == 0] <- NA
+#gaffers[gaffers == 0] <- NA
+#b <- hist(bailers, breaks = seq(0, 75, 5))
+#g <- hist(gaffers, breaks = seq(0, 75, 5))
 
-b <- hist(bailers, breaks = seq(0, 75, 5))
-g <- hist(gaffers, breaks = seq(0, 75, 5))
+png(filename=paste0(st, "_hist_combined.png"), units="in", width=7, height=3, pointsize=12, res=72*4)
 
-png(filename=paste0(st, "_hist.png"), units="in", width=7, height=5, pointsize=12, res=72*4)
+m <- d$mahi_bailers + d$Mahi_gaffers
+m[which(m == 0)] <- NA
 
-ba <- barplot(rbind(g$counts, b$counts), beside = F, axes = F, legend.text = c("gaffers", "bailers"),
-        xlab = "total number of dolphin per trip", ylab = "frequency", 
-     main = paste("distribution of catch per trip -", reglab), cex.main = 1)
-axis(1, at = c(ba - mean(diff(ba))/2, max(ba) + mean(diff(ba))/2), lab = seq(0, 75, 5), line = 0)
+hist(m, breaks = seq(0, 75, 5), freq = T,  xlab = "total number of dolphin per trip", 
+     axes = F, col = 8, main = paste("distribution of mahi catch per trip -", reglab))
+axis(1, at = seq(0, 75, 5), line = 0)
 axis(2, las = 2)
 
+#ba <- barplot(rbind(g$counts, b$counts), beside = F, axes = F, legend.text = c("gaffers", "bailers"),
+#        xlab = "total number of dolphin per trip", ylab = "frequency", 
+#    main = paste("distribution of catch per trip -", reglab), cex.main = 1)
+#axis(1, at = c(ba - mean(diff(ba))/2, max(ba) + mean(diff(ba))/2), lab = seq(0, 75, 5), line = 0)
+#axis(2, las = 2)
+
 dev.off()
+
+mean(m, na.rm = T); median(m, na.rm = T); max(m, na.rm = T)
 
 # Create list of top species ---------------------------
 
@@ -101,13 +115,15 @@ abline(v = min(tail(b, nn))-0.5, col = 2)
 colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)
 sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d))*100
 barplot(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)), las = 2, ylab = "occurrence")
-which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > 0.01)
 
-nn2 <- length(which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > 0.01))  # define min occurance rate here
+if (st == "NC")  { occ_rate <- 0.01 } else { occ_rate <- 0.05 }
+
+which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > 0.01)
+nn2 <- length(which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > occ_rate))  # define min occurance rate here
 abline(v = min(tail(b, nn2))-0.5, col = 2)                                    # use 0.05 for FL   
 
 splis <- names(sort(colSums(d[12:(ncol(d)-2)], na.rm = T), decreasing = T))[1:nn]    
-spliso <- names(which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d), decreasing = T) > 0.01)) # 0.05 for FL, 0.01 for NC
+spliso <- names(which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d), decreasing = T) > occ_rate)) # 0.05 for FL, 0.01 for NC
 splis
 spliso
 
@@ -168,7 +184,7 @@ mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
 splis == leg$spnam[mm]
 
 b <- barplot(permon, col = leg$cols[mm], xlim = c(1, 35), axes = F, space = 0, border = NA, names.arg = rep("", ncol(permon)),
-             legend.text = leg$spleg[mm], args.legend = list(x = 37, y = 0.8, bty = "n"), ylab = "proportion of catch")
+             legend.text = leg$spleg[mm], args.legend = list(x = 24.3, y = 0.8, bty = "n", xjust = 0), ylab = "proportion of catch")
 axis(1, at = c(b - mean(diff(b))/2, max(b) + mean(diff(b))/2)[seq(1, length(b)+2, 2)], 
      lab = c(paste(month.abb, 1), "Dec 31"), las = 2)
 axis(2, las = 2)
@@ -181,7 +197,7 @@ mm <- unlist(lapply(rownames(promon), function(x) which(x == leg$spnam)))
 cbind(rownames(promon), leg$spnam[mm])
 
 b <- barplot(promon, col = leg$cols[mm], xlim = c(1, 35), axes = F, space = 0, border = NA, names.arg = rep("", ncol(promon)),
-             legend.text = leg$spleg[mm], args.legend = list(x = 37, y = 0.8, bty = "n"), ylab = "proportion of occurrences")
+             legend.text = leg$spleg[mm], args.legend = list(x = 24.3, y = 0.8, bty = "n", xjust = 0), ylab = "proportion of occurrences")
 axis(1, at = c(b - mean(diff(b))/2, max(b) + mean(diff(b))/2)[seq(1, length(b)+2, 2)], 
         lab = c(paste(month.abb, 1), "Dec 31"), las = 2)
 axis(2, las = 2)
@@ -190,16 +206,17 @@ text(line2user(line=mean(par('mar')[c(2, 4)]), side=2), xpd=NA, cex=1.2, font=2,
      line2user(line=2, side=3), paste('average distribution of catch over year -', reglab))
 
 # Plot smoothed data ------------------------------------
-par(mgp = c(1.0, 1, 0), mar = c(2, 3.0, 1, 1))
+par(mgp = c(0.8, 1, 0), mar = c(2, 3.0, 1, 1))
 if (st == "FL") { ylim1 <- 10; ylim2 <- 0.9 }  else { ylim1 <- 18; ylim2 <- 1.3 }
 
-plot(d$doy, d[,splis[1]], ylim = c(0, ylim1), col = 0, xlim = c(1, 550),   # ylim 10 for FL, 18 for NC
+plot(d$doy, d[,splis[1]], ylim = c(0, ylim1), col = 0, xlim = c(1, 530),   # ylim 10 for FL, 18 for NC
      xlab = "", axes = F, ylab = "relative importance\n(total number)")
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
 axis(1, at = c(0, 365), lab = c("", ""), tck = 0)
 
 mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
-legend("right", leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 1)
+legend(x = 380, y = ylim1/1.4, xjust = 0, 
+       leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 1)
 for (i in 1:nn)  { 
   y <- d[,which(names(d) == splis[i])]
   y[is.na(y)] <- 0  
@@ -207,13 +224,14 @@ for (i in 1:nn)  {
   lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 3)  
 }
 
-plot(d$doy, d[,spliso[1]], ylim = c(0, ylim2), col = 0, xlim = c(1, 550),        # 0.9 for FL, 1.3 for NC
+plot(d$doy, d[,spliso[1]], ylim = c(0, ylim2), col = 0, xlim = c(1, 530),        # 0.9 for FL, 1.3 for NC
      xlab = "", axes = F, ylab = "relative importance\n(presence/absence)")
 axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
 axis(1, at = c(0, 365), lab = c("", ""), tck = 0)
 
 mm <- unlist(lapply(spliso, function(x) which(x == leg$spnam)))
-legend("right", leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 1)
+legend(x = 380, y = ylim2/1.4, xjust = 0,
+              leg$spleg[mm], pch = 15, pt.cex = 1.5, col = leg$cols[mm], ncol=1, bty= "n", cex = 1)
 for (i in 1:length(spliso))  { 
   y <- d[,which(names(d) == spliso[i])]
   #y <- log(y)
@@ -245,6 +263,7 @@ for (i in 1:length(splis))  {
 }
 spleg <- str_to_sentence(spleg)
 cbind(splis, spleg)
+spleg[which(spleg == "Black sea")] <- "Black sea bass"
 
 d1 <- d[,which(names(d) %in% splis)]
 d1[is.na(d1)] <- 0
