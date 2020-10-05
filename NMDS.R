@@ -21,14 +21,14 @@ library(yarrr)
 # Load data --------------------------------------------
 dfl <- read.table("Charter_SouthFloridaKeys_9_22_20_906Count.csv", 
                 header = T, sep = ",", check.names = F, quote = "")
-dnc <- read.table("Charter__NCVA_9_22_20_1340Count.csv", 
+dnc <- read.table("Charter_NCVA_100520.csv", 
                 header = T, sep = ",", check.names = F, quote = "")
 
 head(dfl)
 head(dnc)
 
 #d <- dfl
-#d <- dnc
+d <- dnc
 
 # ONLY for analysis of two regions together ------------
 
@@ -121,8 +121,8 @@ table(d$marina, d$reg2)
 table(d$mclass, useNA = "always")
 table(d$mclass, d$region)
 
-d$reg2 <- factor(d$reg2, levels = c("FL Keys", "Miami - Deerfield", "Boynton - Jupiter", "Morehead", 
-                          "Hatteras", "Wanchese", "Virginia Beach"))
+d$reg2 <- factor(d$reg2, levels = c("FL Keys", "Miami - Deerfield", "Boynton - Jupiter", 
+                                    "Morehead", "Hatteras", "Wanchese", "Virginia Beach"))
                           
 d$mon <- d$month                       # group months with few samples
 table(d$mon, useNA = "always")
@@ -148,15 +148,16 @@ plot(colSums(d1))
 sort(colSums(d1 != 0) / nrow(d1) * 100)   # look at occurrence rates
 hist(colSums(d1 != 0) / nrow(d1) * 100, breaks = 40)
 which(colSums(d1 != 0) / nrow(d1) * 100 < 1)
-which(colSums(d1 != 0) / nrow(d1) * 100 > 1)
+which(colSums(d1 != 0) / nrow(d1) * 100 >= 1)
 
-splis <- which(colSums(d1 != 0) / nrow(d1) * 100 > 1) 
+splis <- which(colSums(d1 != 0) / nrow(d1) * 100 >= 1) 
 splis
 d2 <- d1[splis]
 dim(d2) 
 head(d2)
 
 djit <- d2 + abs(rnorm(prod(dim(d2)), sd=0.01))  # jitter data because some exact like entries
+save(djit, file = "NC_NMDS_input.RData")
 
 #for (i in 1:ncol(d1))  { d1[,i] <- d1[,i] / max(d1[,i]) }  # scale by max abundance
 
@@ -167,11 +168,12 @@ d1.dist <- vegdist(djit, method = "bray")
 pc <- isoMDS(d1.dist, k = 2, trace = T, tol = 1e-3)
 #pc <- isoMDS(d1.dist, k = 3, trace = T, tol = 1e-3)
 
-pc3 <- isoMDS(d1.dist, k = 3, trace = T, tol = 1e-3)
-pc4 <- isoMDS(d1.dist, k = 4, trace = T, tol = 1e-3)
-pc5 <- isoMDS(d1.dist, k = 5, trace = T, tol = 1e-3)
-pc6 <- isoMDS(d1.dist, k = 6, trace = T, tol = 1e-3)
+#pc3 <- isoMDS(d1.dist, k = 3, trace = T, tol = 1e-3)
+#pc4 <- isoMDS(d1.dist, k = 4, trace = T, tol = 1e-3)
+#pc5 <- isoMDS(d1.dist, k = 5, trace = T, tol = 1e-3)
+#pc6 <- isoMDS(d1.dist, k = 6, trace = T, tol = 1e-3)
 
+#plot(c(2:6), c(pc$stress, pc3$stress, pc4$stress, pc5$stress, pc6$stress), type = "b")
 
 # ANOSIM ---------------------------
 reg.ano <- anosim(d1.dist, d$region)
@@ -181,8 +183,6 @@ yr.ano <- anosim(d1.dist, d$yr2)
 mon.ano <- anosim(d1.dist, d$mon2)
 sea.ano <- anosim(d1.dist, d$mclass)
 
-save(list = c(reg.ano, reg2.ano, mar.ano, yr.ano, mon.ano, sea.ano), file = "ANOSIMres.RData")
-
 summary(reg.ano)
 summary(reg2.ano)
 summary(mar.ano)
@@ -190,7 +190,7 @@ summary(yr.ano)
 summary(mon.ano)
 summary(sea.ano)
 
-#save(reg.ano, reg2.ano, mar.ano, yr.ano, mon.ano, sea.ano, file = "ANOSIMres.RData")
+save(reg.ano, reg2.ano, mar.ano, yr.ano, mon.ano, sea.ano, file = "ANOSIMres.RData")
 
 Rvals <- c(reg.ano$statistic, reg2.ano$statistic, mar.ano$statistic, 
            yr.ano$statistic, mon.ano$statistic, sea.ano$statistic)
@@ -212,7 +212,7 @@ par(mfrow=c(3,2), mex = 1.0, mar = c(2,3,2,1))
 
 cols <- transparent(alphabet(20), trans.val = 0.5)
 factors <- c("region", "reg2", "marina", "yr2", "mon2", "mclass")
-labs <- c("region", "subregion", "marina", "year", "month", "season")
+labs <- c("state", "subregion", "marina", "year", "month", "season")
 
 for (i in 1:6)  {
   fact <- d[,which(names(d) == factors[i])]
@@ -222,13 +222,13 @@ for (i in 1:6)  {
        main = labs[i], pch = 16, cex = 0.6) #, xlim = c(-1, 1))  #  xlim = c(-0.8, 0.8))
   ordiellipse(pc, fact, col = cols, lwd = 2, kind = "sd", label = F)
   legend("bottomleft", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], pch = 16, cex = 1)
-  text(x = 0.80, y = -0.85, paste("R =", round(Rvals[i], 2)), cex = 1.2)
+  text(x = 0.6, y = -0.5, paste("R =", round(Rvals[i], 2)), cex = 1.2)
     }
 
 # final ordination plot -----------------------------------
 
-png(filename="NMDS_allregions.png", units="in", width=7, height=7, pointsize=12, res=72*4)
-cexs <- c(1, 0.8, 1, 1, 0.8, 0.8)
+png(filename="NMDS_NC.png", units="in", width=7, height=7, pointsize=12, res=72*4)
+cexs <- c(1, 1, 1, 1, 1, 1)
 
 par(mfrow=c(2,2), mex = 1.0, mar = c(2,3,2,1))
 for (i in c(1, 2, 4, 5))  {
@@ -239,11 +239,12 @@ for (i in c(1, 2, 4, 5))  {
   cols2 <- transparent(rainbow(nrow(ta)), trans.val = 0.6)
     
   plot(pc$points[,1], pc$points[,2], col = cols2[as.numeric(as.factor(fact))], 
-       main = labs[i], pch = 19, cex = 0.5, xlim = c(-1, 1), ylim = c(-1, 1), xlab = "", ylab = "")
+       main = labs[i], pch = 19, cex = 0.5, xlim = c(-0.7, 0.7), ylim = c(-0.8, 1), xlab = "", ylab = "")
   ordiellipse(pc, fact, col = cols, lwd = 3, kind = "sd", label = F)
-  legend("bottomleft", ncol = 1, colnames(ta), col = cols[as.numeric(rownames(ta))], 
-         pch = 15, cex = cexs[i], bty = "n")
-  text(x = 0.75, y = -0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
+  if (i == 5) { a <- 3 } else { a <- 2 }
+  legend("bottomleft", ncol = a, colnames(ta), col = cols[as.numeric(rownames(ta))], 
+         pch = 15, cex = cexs[i], bty = "n", y.intersp = 1)
+  text(x = -0.55, y = 0.95, paste("R =", round(Rvals[i], 2)), cex = 1.2)
   }
 
 dev.off()

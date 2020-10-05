@@ -29,7 +29,7 @@ source("line2user.R")
 
 # Load data --------------------------------------------
 #d <- read.table("Charter_SouthFloridaKeys_9_22_20_906Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "FL"
-d <- read.table("Charter__NCVA_9_22_20_1340Count.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "NC"
+d <- read.table("Charter_NCVA_100520.csv", header = T, sep = ",", check.names = F, quote = ""); st <- "NC"
 
 names(d)[grep("mahi", tolower(names(d)))]  
 # check to make sure only columns are: "Unk_Mahi" "M_mahi_gaffers" "F_mahi_gaffers" "mahi_bailers"
@@ -60,7 +60,7 @@ table(d[9], useNA = "always")
 d$Mahi_gaffers <- d$Unk_Mahi + d$M_mahi_gaffers + d$F_mahi_gaffers
 head(cbind(d$Unk_Mahi, d$M_mahi_gaffers, d$F_mahi_gaffers, d$Mahi_gaffers))
 
-table(rowSums(d[12:(ncol(d))], na.rm = T) == 0)
+table(rowSums(d[12:(ncol(d))], na.rm = T) == 0)  # check that all rows are filled out
 
 names(d)[grep("ilefish", names(d))] <- "Tilefish"
 names(d)[grep("Cero", names(d))] <- "Cero / Spanish mackerel"
@@ -116,9 +116,9 @@ colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)
 sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d))*100
 barplot(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)), las = 2, ylab = "occurrence")
 
-if (st == "NC")  { occ_rate <- 0.01 } else { occ_rate <- 0.05 }
+if (st == "NC")  { occ_rate <- 0.014 } else { occ_rate <- 0.05 }
 
-which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > 0.01)
+which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > 0.02)
 nn2 <- length(which(sort(colSums(d[12:(ncol(d)-2)] != 0)/nrow(d)) > occ_rate))  # define min occurance rate here
 abline(v = min(tail(b, nn2))-0.5, col = 2)                                    # use 0.05 for FL   
 
@@ -141,7 +141,7 @@ dy <- as.numeric(strftime(as.Date(dlis, "%d%b"), format = "%j"))
 
 # Plot raw data -----------------------------------------
 
-png(filename=paste0(st, "_raw.png"), units="in", width=7, height=7, pointsize=12, res=72*4)
+png(filename=paste0(st, "_raw.png"), units="in", width=7, height=5.5, pointsize=12, res=72*4)
 
 mm <- unlist(lapply(splis, function(x) which(x == leg$spnam)))
 cbind(splis, leg$spnam[mm])
@@ -158,7 +158,8 @@ axis(1, at = dy, lab = month.abb[c(1,3,5,7,9,11)])
 la <- c(1:5, 10, 15, 20, 25)
 #axis(2, las = 2, at = log(la), lab = la); box()
 axis(2, las = 2); box()
-legend("topleft", leg$spleg[mm], col = leg$cols[mm], pch = leg$pchs[mm], pt.cex = leg$cexs[mm], ncol = 1)
+legend("topleft", leg$spleg[mm], col = leg$cols[mm], pch = leg$pchs[mm], 
+       pt.cex = leg$cexs[mm], ncol = 1, cex = 1, bty = "n")
 
 dev.off()
 
@@ -207,7 +208,7 @@ text(line2user(line=mean(par('mar')[c(2, 4)]), side=2), xpd=NA, cex=1.2, font=2,
 
 # Plot smoothed data ------------------------------------
 par(mgp = c(0.8, 1, 0), mar = c(2, 3.0, 1, 1))
-if (st == "FL") { ylim1 <- 10; ylim2 <- 0.9 }  else { ylim1 <- 18; ylim2 <- 1.3 }
+if (st == "FL") { ylim1 <- 10; ylim2 <- 0.9 }  else { ylim1 <- 16; ylim2 <- 1.03 }
 
 plot(d$doy, d[,splis[1]], ylim = c(0, ylim1), col = 0, xlim = c(1, 530),   # ylim 10 for FL, 18 for NC
      xlab = "", axes = F, ylab = "relative importance\n(total number)")
@@ -221,7 +222,7 @@ for (i in 1:nn)  {
   y <- d[,which(names(d) == splis[i])]
   y[is.na(y)] <- 0  
   ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
-  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 3)  
+  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 4)  
 }
 
 plot(d$doy, d[,spliso[1]], ylim = c(0, ylim2), col = 0, xlim = c(1, 530),        # 0.9 for FL, 1.3 for NC
@@ -238,7 +239,7 @@ for (i in 1:length(spliso))  {
   y[which(y > 1)] <- 1
   y[is.na(y)] <- 0  
   ks <- ksmooth(d$doy, y, "normal", bandwidth=50, range.x = c(1, 365), n.points = 365) 
-  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 3)  
+  lines(ks$x, ks$y, col = leg$cols[mm][i], lwd = 4)  
 }
 
 dev.off()
